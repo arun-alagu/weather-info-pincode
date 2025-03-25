@@ -59,6 +59,11 @@ public class WeatherDataService implements IWeatherDataService{
 			throw new IllegalArgumentException(e.getResponseBodyAsString());
 		}
 		
+		if(jsonResponse == null) {
+			throw new IllegalArgumentException("No response received for \"lat:"+pincodeLocation.getLatitude()+
+					", lon:"+pincodeLocation.getLongitude()+", date:"+ LocalDate.now()+"\"");
+		}
+		
 		WeatherData weatherData =  jsonToWeatherData(jsonResponse);
 		weatherData.setLatitude(pincodeLocation.getLatitude());
 		weatherData.setLongitude(pincodeLocation.getLongitude());
@@ -76,8 +81,6 @@ public class WeatherDataService implements IWeatherDataService{
 				pincodeLocation.getLatitude(), pincodeLocation.getLongitude(), date);
 		
 		if(weatherDataFromDb != null) return weatherDataFromDb;
-//		System.out.println(weatherDataFromDb != null);
-//		System.out.println(pincodeLocation.getLatitude()+","+pincodeLocation.getLongitude()+","+date);
 		String jsonResponse = null;
 		try {
 			jsonResponse= restTemplate.getForObject(
@@ -94,10 +97,13 @@ public class WeatherDataService implements IWeatherDataService{
 			throw new IllegalArgumentException(errorMessage);
 		}
 		
+		if(jsonResponse == null) {
+			throw new IllegalArgumentException("No response received for lat: "+pincodeLocation.getLatitude()+
+					" lon: "+pincodeLocation.getLongitude()+" date: "+ date);
+		}
 		WeatherData weatherData =  jsonToWeatherData(jsonResponse);
 		weatherData.setLatitude(pincodeLocation.getLatitude());
 		weatherData.setLongitude(pincodeLocation.getLongitude());
-//		System.out.println(weatherData.getLatitude()+","+weatherData.getLongitude()+","+weatherData.getDate());
 		return createOldWeather(weatherData);
 	}
 	
@@ -131,13 +137,6 @@ public class WeatherDataService implements IWeatherDataService{
 			weatherData.setWindSpeed(Double.valueOf(hourly.get("wind_speed_10m").get(currentHour).asText()));
 			
 		}
-//		System.out.println("Latitude: " + weatherData.getLatitude());
-//		System.out.println("Longitude: " + weatherData.getLongitude());
-//		System.out.println("Date: " + weatherData.getDate());
-//		System.out.println("Temperature: " + weatherData.getTemperature());
-//		System.out.println("Humidity: " + weatherData.getHumidity());
-//		System.out.println("Wind Speed: " + weatherData.getWindSpeed());
-		
 		return weatherData;
 		
 	}

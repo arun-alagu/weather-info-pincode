@@ -8,12 +8,15 @@ import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.TimeZone;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.arun.app.dtos.WeatherDataDto;
+import com.arun.app.models.PincodeLocation;
 import com.arun.app.models.WeatherData;
 import com.arun.app.services.WeatherDataService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -22,7 +25,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 @RestController
 public class WeatherController {
 	private final WeatherDataService weatherDataService;
-
+	
 	public WeatherController(WeatherDataService weatherDataService) {
 		this.weatherDataService = weatherDataService;
 	}
@@ -52,7 +55,11 @@ public class WeatherController {
 			throw new DateTimeParseException("Invalid Date: "+date, date, 0);
 		}
 		
-		WeatherData weatherData = weatherDataService.getCurrentWeather(pincode);
+		WeatherData weatherData = 
+				weatherDataService.getCurrentWeather(pincode);
+		if (weatherData == null) {
+            throw new IllegalArgumentException("Weather data cannot be null");
+        }
 		return ResponseEntity.ok(WeatherDataDto.get(weatherData, pincode));
 	}
 }

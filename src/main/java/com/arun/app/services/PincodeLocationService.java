@@ -3,6 +3,9 @@ package com.arun.app.services;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -16,44 +19,70 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class PincodeLocationService implements IPincodeLocationService{
+	private static final String STRING_KEY_PREFIX = "pincode:";
 	private final PincodeLocationRepo pincodeLocationRepo;
 	private final RestTemplate restTemplate;
+	private final RedisTemplate<String, PincodeLocation> pincodeRedis;
 	
-	public PincodeLocationService(PincodeLocationRepo pincodeLocationRepo, RestTemplate restTemplate) {
+	public PincodeLocationService(PincodeLocationRepo pincodeLocationRepo, RestTemplate restTemplate,
+			RedisTemplate<String, PincodeLocation> pincodeRedis) {
 		this.pincodeLocationRepo = pincodeLocationRepo;
 		this.restTemplate = restTemplate;
+		pincodeRedis.setKeySerializer(new StringRedisSerializer());
+	    pincodeRedis.setValueSerializer(new Jackson2JsonRedisSerializer<>(PincodeLocation.class));
+		this.pincodeRedis = pincodeRedis;
+	}
+	
+	@Override
+	public PincodeLocation getPincodeLocation(String pincode) throws JsonMappingException, JsonProcessingException {
+		String redisKey = STRING_KEY_PREFIX + pincode;
+		PincodeLocation redisPincodeLocation = pincodeRedis.opsForValue().get(redisKey);
+		if(redisPincodeLocation != null)
+			return redisPincodeLocation;
+		
+		PincodeLocation pincodeLocationRes =  getPincodeLocationFromDb(pincode);
+		if(pincodeLocationRes != null) {
+			pincodeRedis.opsForValue().set(redisKey, pincodeLocationRes);
+			return pincodeLocationRes;
+		}
+		
+		pincodeLocationRes = getPincodeLocationUsingAPI(pincode);
+		pincodeRedis.opsForValue().set(redisKey, pincodeLocationRes);
+		return pincodeLocationRes;
+		
+	}
+	
+	public PincodeLocation getPincodeLocationFromDb(String pincode) {
+		return pincodeLocationRepo.findByPincode(pincode);
 	}
 	
 	@Value("${GEO_CODING_API_URL}")
 	private String geoCodingUrl;
 	@Value("${GEO_CODING_API_KEY}")
 	private String apiKey;
-	@Override
-	public PincodeLocation getPincodeLocation(String pincode) throws JsonMappingException, JsonProcessingException {
-		
-		PincodeLocation pincodeLocationFromDb =  pincodeLocationRepo.findByPincode(pincode);
-		if(pincodeLocationFromDb != null) return pincodeLocationFromDb;
-		
+	public PincodeLocation getPincodeLocationUsingAPI(String pincode) throws JsonMappingException, JsonProcessingException {
 		String jsonResponse = null;
 		try {
 		 jsonResponse = restTemplate.getForObject(
 				geoCodingUrl+"?zip="+pincode+",IN&appid="+apiKey
 				,String.class);
-		}catch(HttpClientErrorException  e) {
+		} catch(HttpClientErrorException  e) {
 			 ObjectMapper objectMapper = new ObjectMapper();
            JsonNode jsonNode = objectMapper.readTree(e.getResponseBodyAsString());
+           Integer errorCode = jsonNode.path("cod").asInt();
            String errorMessage = jsonNode.path("message").asText();
-//			System.out.println(jsonResponse.isEmpty());
-			throw new IllegalArgumentException("Pincode: "+pincode+" "+errorMessage);
+           if(errorCode == 404)
+        	   throw new IllegalArgumentException("Pincode: "+pincode+" "+errorMessage);
+           else if(errorCode == 401)
+        	   throw new IllegalArgumentException("Invalid API key");
+           else
+        	   throw new IllegalArgumentException(errorMessage);
 		}
 		
+		if (jsonResponse == null || jsonResponse.isEmpty()) {
+            throw new IllegalArgumentException("No response received for pincode: " + pincode);
+        }
 		
-//		logger.debug(object.toString());
-//		System.out.println(pincodeLocation.getPincode());
-//		System.out.println(pincodeLocation.getName());
-//		System.out.println(pincodeLocation.getLatitide());
-//		System.out.println(pincodeLocation.getLongitude());
-//		System.out.println(pincodeLocation.getCountry());
 		return jsonToPincodeLocation(jsonResponse);
 	}
 	
@@ -64,7 +93,7 @@ public class PincodeLocationService implements IPincodeLocationService{
 	
 	@Override
 	public PincodeLocation updatePincodeLocation(PincodeLocation pincodeLocation) throws JsonMappingException, JsonProcessingException {
-		PincodeLocation pincodeLocation2 = getPincodeLocation(pincodeLocation.getPincode());
+		PincodeLocation pincodeLocation2 = getPincodeLocationFromDb(pincodeLocation.getPincode());
 		if(pincodeLocation2 == null) return createPincodeLocation(pincodeLocation);
 		
 		 Optional.ofNullable(pincodeLocation.getLatitude()).ifPresent(pincodeLocation2::setLatitude);

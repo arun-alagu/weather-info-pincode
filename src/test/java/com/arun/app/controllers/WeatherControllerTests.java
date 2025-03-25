@@ -13,6 +13,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.TimeZone;
@@ -22,10 +23,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,16 +41,11 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 
 @SpringBootTest
 public class WeatherControllerTests {
-	@Mock
+	@MockitoBean
     private WeatherDataService weatherDataService;
 	
-    @InjectMocks
+    @Autowired
     private WeatherController weatherController;
-    
-    @BeforeEach
-    void setUp() {
-    	MockitoAnnotations.openMocks(this);
-    }
     
     @Test
     void testGetWeatherForFutureDate() {
@@ -64,29 +62,32 @@ public class WeatherControllerTests {
         assertEquals("Enter current date or previous date", ex.getMessage());
     }
 
+  
     @Test
     void testGetWeatherForCurrentDate() throws Exception {
         // Setup mock data
         String pincode = "12345";
-        String date = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE); // Current date in ISO format
 
         // Mock a valid WeatherData object
         WeatherData mockWeatherData = new WeatherData();
         mockWeatherData.setLatitude(28.7041);  // Mock latitude value
         mockWeatherData.setLongitude(77.1025); // Mock longitude value
-        mockWeatherData.setTemperature(25.00);    // Mock temperature value
- 
+        mockWeatherData.setTemperature(25.00); // Mock temperature value
+
         when(weatherDataService.getCurrentWeather(pincode)).thenReturn(mockWeatherData);
 
-    	ResponseEntity<WeatherDataDto> response = weatherController.getWeather(pincode, date);
-    	assertNotNull(response);
-    	assertEquals(response.getStatusCode(), HttpStatus.OK);
-    	assertNotNull(response.getBody());
-    	assertEquals(response.getBody().getLatitude(), mockWeatherData.getLatitude());
-    	assertEquals(response.getBody().getLongitude(), mockWeatherData.getLongitude());
-    	assertEquals(response.getBody().getTemperature(), mockWeatherData.getTemperature());
-    	
-    	verify(weatherDataService, times(1)).getCurrentWeather(pincode);
+        ResponseEntity<WeatherDataDto> response = weatherController.getWeather(pincode, date);
+        
+        // Assertions
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(mockWeatherData.getLatitude(), response.getBody().getLatitude());
+        assertEquals(mockWeatherData.getLongitude(), response.getBody().getLongitude());
+        assertEquals(mockWeatherData.getTemperature(), response.getBody().getTemperature());
+
+        verify(weatherDataService, times(1)).getCurrentWeather(pincode);
     }
     
     @Test
@@ -102,5 +103,29 @@ public class WeatherControllerTests {
 
         // Assertions
         assertEquals(ex.getMessage(),"Invalid Date: "+invalidDate);
+    }
+    
+    @Test
+    void testGetWeatherForBeforeDate() throws JsonMappingException, JsonProcessingException, ParseException {
+    	String pincode = "123456";
+    	String date = "2020-10-10"; 
+    	
+    	WeatherData mockWeatherData = new WeatherData();
+        mockWeatherData.setLatitude(28.7041);  // Mock latitude value
+        mockWeatherData.setLongitude(77.1025); // Mock longitude value
+        mockWeatherData.setTemperature(25.00); // Mock temperature value
+        
+		when(weatherDataService.getOldWeather(pincode, LocalDate.parse(date))).thenReturn(mockWeatherData);
+		
+		ResponseEntity<WeatherDataDto> response = weatherController.getWeather(pincode, date);
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(mockWeatherData.getLatitude(), response.getBody().getLatitude());
+        assertEquals(mockWeatherData.getLongitude(), response.getBody().getLongitude());
+        assertEquals(mockWeatherData.getTemperature(), response.getBody().getTemperature());
+
+        verify(weatherDataService, times(1)).getOldWeather(pincode,  LocalDate.parse(date));
+		
     }
 }

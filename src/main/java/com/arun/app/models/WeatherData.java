@@ -1,5 +1,6 @@
 package com.arun.app.models;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Date;
 
@@ -11,7 +12,7 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-public class WeatherData extends BaseModel{
+public class WeatherData extends BaseModel implements Serializable{
 	private Double latitude;
 	private Double longitude;
 	private LocalDate date;

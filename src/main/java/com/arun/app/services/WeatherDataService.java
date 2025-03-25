@@ -7,10 +7,15 @@ import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -29,14 +34,21 @@ public class WeatherDataService implements IWeatherDataService{
 	private final WeatherDataRepo weatherDataRepo;
 	private final RestTemplate restTemplate;
 	private final PincodeLocationService pincodeLocationService;
+	private final RedisTemplate<String, WeatherDataDto> weatherRedis;
+	private final RedisTemplate<String, WeatherData> weatherRedis2;
+	private static final String STRING_KEY_PREFIX_C = "current-weather:";
+	private static final String STRING_KEY_PREFIX_O = "old-weather:";
 	
 	Logger logger = LoggerFactory.getLogger(WeatherDataService.class);
 
 	public WeatherDataService(WeatherDataRepo weatherDataRepo, RestTemplate restTemplate,
-			PincodeLocationService pincodeLocationService ) {
+			PincodeLocationService pincodeLocationService, 
+			RedisTemplate<String, WeatherDataDto> weatherRedis, RedisTemplate<String, WeatherData> weatherRedis2) {
 		this.weatherDataRepo = weatherDataRepo;
 		this.restTemplate = restTemplate;
 		this.pincodeLocationService = pincodeLocationService;
+		this.weatherRedis = weatherRedis;
+		this.weatherRedis2 = weatherRedis2;
 	}
 	
 	@Value("${CURRENT_WEATHER_API_URL}")
@@ -45,6 +57,12 @@ public class WeatherDataService implements IWeatherDataService{
 	public WeatherData getCurrentWeather(String pincode) throws JsonMappingException, JsonProcessingException, ParseException {
 		
 		PincodeLocation pincodeLocation = pincodeLocationService.getPincodeLocation(pincode);
+		String redisKey = STRING_KEY_PREFIX_C+pincodeLocation.getLatitude()+":"
+				+pincodeLocation.getLongitude()+":"+LocalDate.now();
+		
+		WeatherDataDto redisWeatherData = weatherRedis.opsForValue().get(redisKey);
+		if(redisWeatherData != null) return WeatherDataDto.getWeatherData(redisWeatherData);
+		
 		String jsonResponse = null;
 		try {
 		jsonResponse = restTemplate.getForObject(
@@ -67,8 +85,15 @@ public class WeatherDataService implements IWeatherDataService{
 		WeatherData weatherData =  jsonToWeatherData(jsonResponse);
 		weatherData.setLatitude(pincodeLocation.getLatitude());
 		weatherData.setLongitude(pincodeLocation.getLongitude());
+		
+		setWithExpiration(redisKey, WeatherDataDto.get(weatherData, pincode), 5, TimeUnit.MINUTES);
 		return weatherData;
 	}
+	
+	private void setWithExpiration(String key, WeatherDataDto value, long timeout, TimeUnit unit) {
+        ValueOperations<String, WeatherDataDto> ops = weatherRedis.opsForValue();
+        ops.set(key, value, timeout, unit);
+    }
 	
 	@Value("${OLD_WEATHER_API_URL}")
 	private String oldWeatherUrl;
@@ -76,11 +101,20 @@ public class WeatherDataService implements IWeatherDataService{
 	public WeatherData getOldWeather(String pincode, LocalDate date) throws JsonMappingException, JsonProcessingException, ParseException {
 		
 		PincodeLocation pincodeLocation = pincodeLocationService.getPincodeLocation(pincode);
+		String redisKey = STRING_KEY_PREFIX_O+pincodeLocation.getLatitude()+":"
+				+pincodeLocation.getLongitude()+":"+date;
+		
+		WeatherData redisWeatherData = weatherRedis2.opsForValue().get(redisKey);
+		if(redisWeatherData != null) return redisWeatherData;
 		
 		WeatherData weatherDataFromDb = weatherDataRepo.findByLatitudeAndLongitudeAndDate(
 				pincodeLocation.getLatitude(), pincodeLocation.getLongitude(), date);
 		
-		if(weatherDataFromDb != null) return weatherDataFromDb;
+		if(weatherDataFromDb != null) {
+			weatherRedis2.opsForValue().set(redisKey, weatherDataFromDb);
+			return weatherDataFromDb;
+		}
+		
 		String jsonResponse = null;
 		try {
 			jsonResponse= restTemplate.getForObject(
@@ -104,7 +138,11 @@ public class WeatherDataService implements IWeatherDataService{
 		WeatherData weatherData =  jsonToWeatherData(jsonResponse);
 		weatherData.setLatitude(pincodeLocation.getLatitude());
 		weatherData.setLongitude(pincodeLocation.getLongitude());
-		return createOldWeather(weatherData);
+		weatherDataFromDb = createOldWeather(weatherData);
+		
+		weatherRedis2.opsForValue().set(redisKey, weatherDataFromDb);
+		return weatherDataFromDb;
+		 
 	}
 	
 	@Override

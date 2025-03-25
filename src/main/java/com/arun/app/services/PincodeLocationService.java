@@ -28,8 +28,6 @@ public class PincodeLocationService implements IPincodeLocationService{
 			RedisTemplate<String, PincodeLocation> pincodeRedis) {
 		this.pincodeLocationRepo = pincodeLocationRepo;
 		this.restTemplate = restTemplate;
-		pincodeRedis.setKeySerializer(new StringRedisSerializer());
-	    pincodeRedis.setValueSerializer(new Jackson2JsonRedisSerializer<>(PincodeLocation.class));
 		this.pincodeRedis = pincodeRedis;
 	}
 	

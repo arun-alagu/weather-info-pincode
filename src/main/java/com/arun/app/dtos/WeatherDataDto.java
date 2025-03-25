@@ -1,5 +1,6 @@
 package com.arun.app.dtos;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Date;
 
@@ -10,7 +11,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class WeatherDataDto {
+public class WeatherDataDto implements Serializable {
 	private static final String TEMPERATURE_UNIT = "°C";
     private static final String HUMIDITY_UNIT = "%";
     private static final String WINDSPEED_UNIT = "km/h";
@@ -46,6 +47,21 @@ public class WeatherDataDto {
     	dto.setWindSpeed(weatherData.getWindSpeed());
     	return dto;
     }
+    public static WeatherData getWeatherData (WeatherDataDto dto) {
+    	if (dto == null) {
+            throw new IllegalArgumentException("Weather data cannot be null");
+        }
+    	WeatherData weatherData = new WeatherData();
+    	weatherData.setLatitude(dto.getLatitude());
+    	weatherData.setLongitude(dto.getLongitude());
+    	weatherData.setDate(dto.getDate());
+    	weatherData.setTemperature(dto.getTemperature());
+    	weatherData.setHumidity(dto.getHumidity());
+    	weatherData.setWindSpeed(dto.getWindSpeed());
+    	return weatherData;
+    }
+    
+    
 }
 
 

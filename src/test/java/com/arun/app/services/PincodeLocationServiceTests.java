@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,10 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import com.arun.app.dtos.WeatherDataDto;
 import com.arun.app.models.PincodeLocation;
 import com.arun.app.repositories.PincodeLocationRepo;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,6 +37,12 @@ public class PincodeLocationServiceTests {
 	
 	@MockitoBean
 	private RestTemplate restTemplate;
+	
+	@MockitoBean
+	private RedisTemplate<String, PincodeLocation> redisTemplate;
+	
+	@MockitoBean
+	private ValueOperations<String, PincodeLocation> valueOps;
 	
 	@Value("${GEO_CODING_API_URL}")
 	private String geoCodingUrl = "https://test.com";
@@ -52,6 +63,9 @@ public class PincodeLocationServiceTests {
 	        expectedLocation.setCountry("India");
 
 	        when(pincodeLocationRepo.findByPincode(pincode)).thenReturn(expectedLocation);
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 
 	        PincodeLocation result = pincodeLocationService.getPincodeLocation(pincode);
 
@@ -80,6 +94,10 @@ public class PincodeLocationServiceTests {
 
 	     // Mock the restTemplate to return the valid JSON response.
 	     when(restTemplate.getForObject(eq(geoCodingUrl+"?zip="+pincode+",IN&appid="+apiKey), eq(String.class))).thenReturn(jsonResponse);
+	     
+	     when(redisTemplate.opsForValue()).thenReturn(valueOps);
+	     when(valueOps.get(anyString())).thenReturn(null);
+	     doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 
 	     // Calling the method under test.
 	     PincodeLocation result = pincodeLocationService.getPincodeLocation(pincode);
@@ -96,7 +114,9 @@ public class PincodeLocationServiceTests {
 	    @Test
 	    void testGetPincodeLocationAPIEmptyResponse() {
 	        String pincode = "110001";
-
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 	        when(pincodeLocationRepo.findByPincode(pincode)).thenReturn(null);
 	        when(restTemplate.getForObject(eq(geoCodingUrl+"?zip="+pincode+",IN&appid="+apiKey), eq(String.class))).thenReturn(null);
 
@@ -119,7 +139,10 @@ public class PincodeLocationServiceTests {
 
 	        when(pincodeLocationRepo.findByPincode(pincode)).thenReturn(null);
 	        when(restTemplate.getForObject(eq(geoCodingUrl+"?zip="+pincode+",IN&appid="+apiKey), eq(String.class))).thenThrow(exception);
-
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
+		     
 	        IllegalArgumentException thrownException = assertThrows(IllegalArgumentException.class, () -> {
 	            pincodeLocationService.getPincodeLocationUsingAPI(pincode);
 	        });
@@ -137,6 +160,9 @@ public class PincodeLocationServiceTests {
 	        pincodeLocation.setCountry("India");
 
 	        when(pincodeLocationRepo.save(pincodeLocation)).thenReturn(pincodeLocation);
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 
 	        PincodeLocation result = pincodeLocationService.createPincodeLocation(pincodeLocation);
 
@@ -163,6 +189,9 @@ public class PincodeLocationServiceTests {
 
 	        when(pincodeLocationRepo.findByPincode("110001")).thenReturn(existingLocation);
 	        when(pincodeLocationRepo.save(existingLocation)).thenReturn(existingLocation);
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 
 	        PincodeLocation result = pincodeLocationService.updatePincodeLocation(updatedLocation);
 
@@ -181,6 +210,9 @@ public class PincodeLocationServiceTests {
 
 	        when(pincodeLocationRepo.findByPincode("110001")).thenReturn(null);
 	        when(pincodeLocationRepo.save(newLocation)).thenReturn(newLocation);
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 
 	        PincodeLocation result = pincodeLocationService.updatePincodeLocation(newLocation);
 
@@ -200,7 +232,9 @@ public class PincodeLocationServiceTests {
 
 	        // Mock the save behavior of the PincodeLocationRepo to return the expected PincodeLocation.
 	        when(pincodeLocationRepo.save(any(PincodeLocation.class))).thenReturn(expectedPincodeLocation);
-
+	        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+		    when(valueOps.get(anyString())).thenReturn(null);
+		    doNothing().when(valueOps).set(any(String.class), any(PincodeLocation.class));
 	        
 	        PincodeLocation result = pincodeLocationService.jsonToPincodeLocation(jsonResponse);
 

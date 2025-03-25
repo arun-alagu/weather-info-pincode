@@ -15,7 +15,7 @@ import com.arun.app.repositories.PincodeLocationRepo;
 @Configuration
 public class RedisTemplateConfig {
 	@Bean
-	RedisTemplate<String, PincodeLocation> redisTemplate(RedisConnectionFactory connectionFactory) {
+	RedisTemplate<String, PincodeLocation> pinRedisTemplate(RedisConnectionFactory connectionFactory) {
 	    RedisTemplate<String, PincodeLocation> template = new RedisTemplate<>();
 	    template.setConnectionFactory(connectionFactory);
 		template.setKeySerializer(new StringRedisSerializer());

@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,12 +22,15 @@ import java.util.Calendar;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import com.arun.app.dtos.WeatherDataDto;
 import com.arun.app.models.PincodeLocation;
 import com.arun.app.models.WeatherData;
 import com.arun.app.repositories.WeatherDataRepo;
@@ -41,6 +47,16 @@ public class WeatherDataServiceTests {
 
     @MockitoBean
     private RestTemplate restTemplate;
+
+    @MockitoBean
+    private RedisTemplate<String, WeatherDataDto> redisTemplate;
+    @MockitoBean
+    private ValueOperations<String, WeatherDataDto> valueOps;
+    
+    @MockitoBean
+    private RedisTemplate<String, WeatherData> redisTemplate2;
+    @MockitoBean
+    private ValueOperations<String, WeatherData> valueOps2;
 
     @MockitoBean
     private PincodeLocationService pincodeLocationService;
@@ -70,7 +86,11 @@ public class WeatherDataServiceTests {
         PincodeLocation location = new PincodeLocation(); // Example latitude and longitude
         location.setLatitude(12.9716);
         location.setLongitude(77.5946);
-
+       
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(anyString())).thenReturn(null);
+        doNothing().when(valueOps).set(any(String.class), any(WeatherDataDto.class));
+        
         // Mocking the pincodeLocationService to return a valid location
         when(pincodeLocationService.getPincodeLocation(pincode)).thenReturn(location);
 
@@ -106,6 +126,10 @@ public class WeatherDataServiceTests {
         location.setLatitude(12.9716);
         location.setLongitude(77.5946);
         
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(anyString())).thenReturn(null);
+        doNothing().when(valueOps).set(any(String.class), any(WeatherDataDto.class));
+        
         // Mocking the pincodeLocationService to return a valid location
         when(pincodeLocationService.getPincodeLocation(pincode)).thenReturn(location);
 
@@ -126,6 +150,11 @@ public class WeatherDataServiceTests {
         location.setLongitude(77.5946);
         WeatherData weatherDataFromDb = new WeatherData();
         weatherDataFromDb.setTemperature(22.5);
+        
+//        when(redisTemplate2.opsForValue().get(anyString())).thenReturn(null);
+        when(redisTemplate2.opsForValue()).thenReturn(valueOps2);
+        when(valueOps2.get(anyString())).thenReturn(null);
+        doNothing().when(valueOps2).set(anyString(), any(WeatherData.class));
 
         // Mocking the pincodeLocationService to return a valid location
         when(pincodeLocationService.getPincodeLocation(pincode)).thenReturn(location);
@@ -242,7 +271,9 @@ public class WeatherDataServiceTests {
         expectedWeatherData.setWindSpeed(rootNode.get("hourly").get("wind_speed_10m").get(Calendar.HOUR_OF_DAY-1).asDouble());
         expectedWeatherData.setHumidity(rootNode.get("hourly").get("relative_humidity_2m").get(Calendar.HOUR_OF_DAY-1).asInt());
 
-        
+        when(redisTemplate2.opsForValue().get(any(String.class))).thenReturn(null);
+        doNothing().when(redisTemplate2).opsForValue().set(any(String.class), any(WeatherData.class));
+       
         when(weatherDataRepo.findByLatitudeAndLongitudeAndDate(
         		location.getLatitude(), location.getLongitude(), LocalDate.of(2020, 10, 10)))
         .thenReturn(null);
@@ -271,7 +302,11 @@ public class WeatherDataServiceTests {
         PincodeLocation location = new PincodeLocation();
         location.setLatitude(28.7041);
         location.setLongitude(77.1025);
-
+        
+        when(redisTemplate2.opsForValue()).thenReturn(valueOps2);
+        when(valueOps2.get(anyString())).thenReturn(null);
+        doNothing().when(valueOps2).set(anyString(), any(WeatherData.class));
+       
         // Mock the behavior of the pincodeLocationService
         when(pincodeLocationService.getPincodeLocation(pincode)).thenReturn(location);
         

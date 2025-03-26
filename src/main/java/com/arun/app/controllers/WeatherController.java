@@ -36,19 +36,19 @@ public class WeatherController {
 			@RequestParam(name = "for_date") String date) 
 					throws ParseException, JsonMappingException, JsonProcessingException {
 		try {
-		SimpleDateFormat gmtFormat = new SimpleDateFormat("yyyy-MM-dd");
-		gmtFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-		LocalDate givenDate = LocalDate.parse(date);
+		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+//		gmtFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+		LocalDate.parse(date);
 		
-		Date gmtDate = gmtFormat.parse(date);
-		Date currGmtDate = gmtFormat.parse(gmtFormat.format(new Date()));
+		Date givenDate = simpleDateFormat.parse(date);
+		Date currDate = simpleDateFormat.parse(simpleDateFormat.format(new Date()));
 		WeatherDataDto dto = null;
-		if(gmtDate.before(currGmtDate)) {
+		if(givenDate.before(currDate)) {
 			WeatherData weatherData = weatherDataService.getOldWeather(pincode, 
-					gmtDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+					givenDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
 			return ResponseEntity.ok(WeatherDataDto.get(weatherData, pincode));
 		}
-		else if(gmtDate.after(currGmtDate))
+		else if(givenDate.after(currDate))
 			throw new IllegalArgumentException("Enter current date or previous date");
 		}
 		catch (DateTimeParseException e) {

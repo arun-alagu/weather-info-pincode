@@ -74,7 +74,9 @@ public class WeatherControllerTests {
         mockWeatherData.setLatitude(28.7041);  // Mock latitude value
         mockWeatherData.setLongitude(77.1025); // Mock longitude value
         mockWeatherData.setTemperature(25.00); // Mock temperature value
+        
 
+//        assertEquals(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE), "2020-10-10");
         when(weatherDataService.getCurrentWeather(pincode)).thenReturn(mockWeatherData);
 
         ResponseEntity<WeatherDataDto> response = weatherController.getWeather(pincode, date);
@@ -102,7 +104,7 @@ public class WeatherControllerTests {
         });
 
         // Assertions
-        assertEquals(ex.getMessage(),"Invalid Date: "+invalidDate);
+        assertEquals("Invalid Date: "+invalidDate, ex.getMessage());
     }
     
     @Test

@@ -4,11 +4,11 @@ services:
     container_name: weather-data-service-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}  # Ensure that DB_NAME is defined in the .env file or environment
-      POSTGRES_USER: ${DB_USERNAME}  # Ensure that DB_USERNAME is defined
-      POSTGRES_PASSWORD: ${DB_PASSWORD}  # Ensure that DB_PASSWORD is defined
+      POSTGRES_DB: ${DB_NAME}  # Ensure DB_NAME is defined in the .env file
+      POSTGRES_USER: ${DB_USERNAME}  # Ensure DB_USERNAME is defined
+      POSTGRES_PASSWORD: ${DB_PASSWORD}  # Ensure DB_PASSWORD is defined
     ports:
-      - "${DB_PORT}:${DB_PORT}"  # Exposes the PostgreSQL port to your host
+      - "${DB_PORT}:5432"  # Exposing PostgreSQL port, default is 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data  # Persist data using a Docker volume
 
@@ -16,10 +16,29 @@ services:
     image: redis:latest
     container_name: redis
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
+      - "${REDIS_PORT}:6379"  # Exposing Redis port, default is 6379
     volumes:
       - redis_data:/data
     restart: unless-stopped
+
+  weather-info-pincode:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      image: weather-info-pincode:latest  # Explicitly name the image
+    container_name: weather-info-pincode
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    env_file:
+      - .env  # Load environment variables from .env
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./data:/app/data
 
 volumes:
   postgres_data:
